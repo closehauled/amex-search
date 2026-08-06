@@ -1,0 +1,13 @@
+#!/bin/bash
+# One-key full-page capture in the VM (bind to a GNOME shortcut).
+# If the Amex hunt is holding a live apply page, capture THAT non-disruptively
+# (saved to ~/Pictures/amex-app-capture-N.png by the scanner). Otherwise capture
+# the current tab of a debug-port Chromium launched via `webapp`
+# (saved to ~/Pictures/pagecap-N.png).
+RUNTIME_DIR="${AMEX_RUNTIME_DIR:-$HOME/.cache/amex-ctl}"
+if [ -f "$RUNTIME_DIR/amex_winner.json" ]; then
+  rm -f "$RUNTIME_DIR/amex_shot_done"
+  touch "$RUNTIME_DIR/amex_shot"
+else
+  exec "$HOME/miniconda3/bin/python" "$HOME/bin/pagecap.py"
+fi

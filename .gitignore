@@ -1,0 +1,54 @@
+# ===== Private / personal data (never commit) =====
+# Your real referral links (codes are personal). Use amex-referrals.txt.example
+# as the template and create your own local amex-referrals.txt.
+amex-referrals.txt
+
+# Experiment data and run logs (contain exit IPs, timestamps, run state)
+*.jsonl
+*.log
+attempts*.jsonl
+experiment*.log
+scan_run.log
+
+# ===== Local agent / editor / OS settings =====
+.claude/
+*.lock
+.DS_Store
+.vscode/
+.idea/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# ===== Secrets =====
+.env
+*.pem
+*.key
+credentials*
+secrets*
+
+# Local watcher config (AMEX_VM_HOST / AMEX_NOTIFY_CMD for winner_watch.sh)
+.amex-env
+
+# Third-party reference copy of Todd's userscript (no license; never commit)
+AHA Exposer*.txt
+
+dist/
+amex-offer-tools.zip
+offer_codes.json
+
+# ===== Public-mirror gate (never commit the real denylist) =====
+# Real PII denylist for scripts/check_publish.py; holds private strings.
+# The committed template is scripts/pii-denylist.txt.example.
+scripts/pii-denylist.txt
+
+# Local session diary and plans may reference private upstream strings;
+# not for distribution.
+WORKLOG.md
+docs/plans/

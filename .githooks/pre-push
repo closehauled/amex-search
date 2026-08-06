@@ -1,0 +1,14 @@
+#!/bin/sh
+# Publish gate: a push physically fails while any PII finding exists, and even
+# a clean scan needs explicit owner approval (PUBLISH_APPROVED=1) per push.
+root="$(git rev-parse --show-toplevel)" || exit 1
+if ! python3 "$root/scripts/check_publish.py"; then
+  echo "pre-push: publish gate failed; push refused." >&2
+  exit 1
+fi
+if [ "${PUBLISH_APPROVED:-}" != "1" ]; then
+  echo "pre-push: pushes from this mirror require explicit owner approval." >&2
+  echo "pre-push: after review, re-run as: PUBLISH_APPROVED=1 git push ..." >&2
+  exit 1
+fi
+exit 0

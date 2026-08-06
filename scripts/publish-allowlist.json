@@ -1,0 +1,19 @@
+{
+  "_comment": "Allowlist for scripts/check_publish.py. Everything in this file is synthetic by construction. Never add a value here to silence a finding you have not proven synthetic; adding a real value here defeats the entire gate.",
+  "publishingIdentities": {
+    "_why": "The only git identity allowed to appear in config or history of this repo. The gate fails closed on anything else so a commit can never ship under a personal identity.",
+    "names": ["closehauled"],
+    "emails": ["closehauled@users.noreply.github.com"]
+  },
+  "allowedEmailDomains": {
+    "_why": "Documentation placeholder domains plus GitHub noreply. No real mail domain belongs here.",
+    "values": ["example.com", "example.net", "example.org", "users.noreply.github.com"]
+  },
+  "syntheticTokens": {
+    "_why": "Placeholder referral codes and fabricated session tokens used in templates and tests. All invented; none was ever issued by Amex.",
+    "values": [
+      "YOUR_REF_CODE",
+      "aaaabbbbccccddddeeeeffff00001111"
+    ]
+  }
+}

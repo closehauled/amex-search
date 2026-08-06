@@ -1,0 +1,11 @@
+#!/bin/bash
+# Launch Chromium with a remote-debug port so `pagecap` / `fullcap` can grab a
+# full-page screenshot of whatever you are applying on. Optional URL argument.
+# Run one webapp browser at a time (the debug port is single-owner).
+PORT="${PAGECAP_PORT:-9222}"
+PROFILE="$HOME/.config/appchrome"
+BIN="$(command -v chromium || command -v chromium-browser)"
+exec "$BIN" --remote-debugging-port="$PORT" \
+  --remote-allow-origins=http://localhost:"$PORT" \
+  --user-data-dir="$PROFILE" \
+  --no-first-run --no-default-browser-check "$@"

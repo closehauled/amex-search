@@ -1,0 +1,29 @@
+# Template for amex-referrals.txt: your personal Amex referral links.
+#
+# HOW TO POPULATE
+# 1. Copy this file:  cp amex-referrals.txt.example amex-referrals.txt
+#    The copy (amex-referrals.txt) is gitignored, so your codes stay private
+#    and can never be committed or end up in the shared zip.
+# 2. Get your referral link from the Amex app or website ("Refer a Friend" on
+#    the card's account page). Each card product has its own link.
+# 3. Paste one full link per line, nothing else on the line. Lines starting
+#    with # and blank lines are ignored. Example shapes (placeholders only):
+#
+# https://americanexpress.com/en-us/referral/business-platinum-charge-card?ref=YOUR_REF_CODE&XL=XXXXX
+# https://americanexpress.com/en-us/referral/business-gold-card?ref=YOUR_REF_CODE&XL=XXXXX
+#
+# NEVER put a real ref= code or XL= campaign value in THIS example file; real
+# values belong only in your gitignored amex-referrals.txt. The ref= code is
+# personally identifying (it maps to the referring cardmember).
+#
+# WHO READS THIS FILE
+# - amex_scanner.py: only when run with --methods referral (off by default).
+#   The card is inferred from the URL path; if the file is missing, referral
+#   mode warns and contributes no entries.
+# - ab_test.py: the paired Google-vs-referral comparison (needs at least one
+#   Business Platinum link).
+# - amex-300k-6.py (legacy): loads the same file if present.
+#
+# WHY IT IS OFF BY DEFAULT: in testing, referral entry pulled the lowest offer
+# tier every time and never the top bonus, while the Google search method did.
+# See docs/experiment-report.md.

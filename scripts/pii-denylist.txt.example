@@ -1,0 +1,9 @@
+# Template for scripts/pii-denylist.txt (which is gitignored and holds the
+# real private strings). Copy this file to scripts/pii-denylist.txt and add
+# one literal per line: real first/last names, personal mail domains, home
+# directory paths, internal IP addresses, referral tokens, session tokens,
+# hostnames, chat handles. Lines starting with # are comments.
+#
+# DO NOT put real values in this .example file. It is committed.
+# Matching is case-insensitive fixed-string, and also covers base64,
+# percent-encoded, JSON-escaped, and split-digit forms of each value.

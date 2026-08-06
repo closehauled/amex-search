@@ -1,0 +1,145 @@
+# Amex Elevated-Offer Scanner
+
+Finds American Express Business Platinum (300k) and Business Gold (200k) elevated
+sign-up offers by exposing the real bonus hidden behind Amex's "as high as"
+language, across rotating NordVPN locations.
+
+Amex now shows "as high as 300,000" on the offer headline instead of a fixed
+number; the real bonus is only in the Print Terms document. This tool reaches the
+official card page the way a person does (Google the card, follow the first
+organic result, click Apply), reveals the actual offer, logs every attempt, and
+on a qualifying hit disconnects the VPN and leaves the browser open with an
+on-page banner so you can submit on your normal IP.
+
+## What it does
+
+- Rotates NordVPN cities, fresh anonymous session per attempt (several
+  attempts per server via `--rotate-every`; exit IP is verified against the
+  residential baseline before any Amex page loads)
+- Reaches the apply page via the Google search method (referral entry is
+  supported but, in testing, gave worse offers, see below)
+- Exposes the real offer behind "as high as" by reading the Print Terms
+  document with the offer-detail URL parameters flipped (no browser extension)
+- Logs every attempt to `attempts.jsonl` and shows a colored on-page banner with
+  the real offer; failed or unparsable pages save bounded forensics
+  (screenshot + body snippet) to `failures/`
+- Rides out anti-bot "off" windows with an escalating cooldown instead of
+  hammering a wall; a fatal abort is loud (marker file + desktop notification)
+- Stop-and-handoff: on a qualifying offer it disconnects the VPN, zooms the
+  page to fit the display, shows a banner with a hold timer, saves a full-page
+  proof capture, and keeps the winning browser session open for off-VPN
+  submission
+
+## Key finding
+
+Randomized-factor experiments (~950 trials total; the corrected write-up is in
+[amex-stats-summary.md](amex-stats-summary.md), the original report in
+[docs/experiment-report.md](docs/experiment-report.md) is superseded on this
+point) found that **a large desktop viewport is the only setting that changes
+the exposed offer**: 1920x1080 and 2560x1440 both pulled the Platinum 300k at
+roughly 56-60%, vs 23% and below for 1536-wide and smaller, and 0% on mobile
+(Fisher p=2.3e-11). The scanner fixes the viewport at 1920x1080. VPN city, exit
+IP, timezone, UA platform, and dwell time all tested flat. Separately, the
+**5-digit code in the apply URL deterministically identifies the offer tier**
+(813/813 draws, zero drift), so a known code is read instantly and the Print
+Terms exposer serves as fallback and pre-submit confirmation. Referral-link
+entry pulled the bottom offer tier every time and never the top bonus, so it is
+off by default.
+
+## Requirements
+
+- Python 3.12+ with `playwright`, `pandas`, `requests` (and `selenium` for the
+  legacy script only)
+- `playwright install chromium`
+- NordVPN CLI, logged in, with `nordvpn set lan-discovery on`
+- A Linux host with a display for the headed browser (the handoff needs a visible
+  window)
+
+## Setup
+
+1. Install dependencies and the Playwright browser:
+   `pip install playwright pandas requests && playwright install chromium`
+2. Create your referral file (optional, referral entry is off by default):
+   `cp amex-referrals.txt.example amex-referrals.txt` and add your links.
+
+## Usage
+
+Hunt continuously for a qualifying offer and hold the winner open for
+submission (headed, on the machine's display):
+
+```
+DISPLAY=:0 python amex_scanner.py --hunt --card business_gold --methods direct --cities Denver Houston Phoenix --servers 1 --rotate-every 10
+```
+
+Runtime markers (winner/fatal/release/screenshots and the control channel)
+live in a private per-user dir, `~/.cache/amex-ctl` by default, overridable
+with `AMEX_RUNTIME_DIR` (all cooperating processes must see the same value).
+On a hit the hunt writes `amex_winner.json` there, disconnects the VPN, and
+holds the live apply page (release by creating `amex_release` there). A fatal
+abort writes `amex_fatal.json`. `winner_watch.sh` (run detached on a second
+machine, with `AMEX_VM_HOST` set to the scan host's ssh destination and
+`AMEX_NOTIFY_CMD` to any script taking a subject and body) emails on
+winner/abort/death.
+
+Other modes:
+
+```
+python amex_scanner.py --single-google "amex business platinum"   # one-shot test (VPN must be up)
+python amex_scanner.py --dry-run --methods google                 # show the entry matrix
+python amex_scanner.py --experiment --trials 150                  # randomized-factor data collection
+python amex_scanner.py --control [--headless]                     # BBT/multi-session holder (drive with amex_ctl.py)
+python analyze.py                                                 # per-factor top-tier hit-rate analysis
+```
+
+## Files
+
+- `amex_scanner.py` - the scanner (search/hunt/experiment/control/handoff)
+- `amex_ctl.py` - CLI for the `--control` holder (spawn/status/release/expose)
+- `analyze.py` - per-factor top-tier hit-rate analysis of `attempts.jsonl`
+- `ab_test.py` - paired Google-vs-referral comparison helper
+- `context_ab_test.py` - browser-context A/B diagnostic for `no_apply_cta`
+  walls (stealth init script / UA spoof variants over one VPN exit)
+- `winner_watch.sh` - detached watcher that emails on winner/abort/death
+- `vm-tools/` - full-page capture helpers for the scan host (`fullcap`,
+  `webapp`, `pagecap.py`)
+- `amex-300k-6.py` - legacy Selenium version (kept for reference)
+- `test_control_helpers.py` - pure-helper tests (no playwright needed);
+  `test_control_nav.py` - control-mode navigation tests (needs playwright)
+- `scripts/check_publish.py` - PII publish gate (heuristics + local denylist
+  + canaries); wired into `.githooks/pre-push` via
+  `git config core.hooksPath .githooks`
+- `amex-stats-summary.md` - corrected findings write-up (viewport + URL code)
+- `docs/experiment-report.md` - original experiment write-up (superseded on
+  the viewport-range conclusion, see header note)
+
+## Privacy
+
+Your real referral links, run logs, and experiment data are gitignored. Only the
+code, templates, and docs are tracked. Review `.gitignore` before pushing
+anywhere public.
+
+## Disclaimer
+
+This is a personal research and automation tool. Use it in accordance with
+American Express, Google, and NordVPN terms of service.
+
+## Credits
+
+The offer-unmask engine (the `isAhaVariant`/`showExactOffer` flip on the Print Terms URL, read via a same-origin iframe or a cross-origin fetch) is a port of **Todd's (toddrob99) "AHA Exposer"** userscript. The automation, hunt loop, Back Button Trick control mode, two-tab method, and viewport experiment are built on top of it.
+
+## TODO
+
+- Identify the `no_apply_cta` wall trigger from the next wall's `failures/` artifacts (stealth-context and simple-pace hypotheses both disproven; trigger is stateful/temporal on Amex's side)
+- Validate the four externally-sourced Platinum codes (57460/65147/73113/73165=200k) by actually drawing and exposing them; they are added to the table but unconfirmed in our own data
+- Optional: `amex_ctl decode <url>` helper and an on-demand drift-check mode
+
+## Changelog highlights
+
+- NordVPN calls use argv lists with server-prefix validation (no `shell=True`); all runtime markers and the control channel moved from `/tmp` to `~/.cache/amex-ctl` (0700, `AMEX_RUNTIME_DIR` override) across the scanner, `amex_ctl.py`, `winner_watch.sh`, and `fullcap`
+- Playwright is now optional at import time, so the pure helpers and `test_control_helpers.py` run without it
+- Exit-IP guard, loud parse_error status, consecutive-only NordVPN failure counting with dedicated-IP skips excluded, escalating cooldown, `--rotate-every`, failure forensics, handoff auto-zoom/hold-clock/proof-capture, `winner_watch.sh` email alerts
+- Overnight 500-trial VPN run validated the code-to-offer mapping at scale (436/436 `code_offer_match`, 813/813 total, zero drift, zero new codes)
+- Added four externally-sourced Platinum codes (incl. new 200k rung 73165), flagged as not-yet-self-validated
+- Viewport finding refined to "large desktop viewport" (1920x1080 and 2560x1440 both ~60%, p=2e-11); reframed around effective viewport / display scaling
+- 5-digit apply-URL code = offer (deterministic in all observed draws); implemented code-first lookup with exposer fallback/confirm
+- Viewport fixed at 1920x1080 baseline; referral entry evaluated and abandoned (Google is better)
