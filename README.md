@@ -58,7 +58,7 @@ off by default.
 ## Requirements
 
 - Python 3.12+ with `playwright`, `pandas`, `requests` (and `selenium` for the
-  legacy script only)
+  two legacy Selenium scripts only, `amex-300k-6.py` and `diagnose.py`)
 - `playwright install chromium`
 - NordVPN CLI, logged in, with `nordvpn set lan-discovery on`
 - A Linux host with a display for the headed browser (the handoff needs a visible
