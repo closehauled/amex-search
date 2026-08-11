@@ -1214,9 +1214,15 @@ def handoff(page, rec, hunt=False, attempts=None, elapsed_sec=None):
     print("=" * 70)
     log_event("handoff", attempt_id=rec["attempt_id"], card=rec["card"],
               offer=rec["exposed_offer_text"])
-    if hunt:
+    if hunt or not sys.stdin.isatty():
         # Detached hunt: write a winner marker and hold the browser open by
         # waiting for a release file (or a long timeout) instead of stdin.
+        #
+        # The isatty check matters as much as the flag. Without it a scan run
+        # started under nohup/systemd/cron reaches the input() below, gets an
+        # immediate EOFError, and dies *after* winning and *after* dropping the
+        # VPN, taking the held session with it. Falling back to the marker hold
+        # keeps the browser open for the one case the whole tool exists for.
         marker = {"card": rec["card"], "offer": rec.get("exposed_offer_text"),
                   "points": rec.get("exposed_offer_points"),
                   "apply_url": rec.get("apply_url_final"),
@@ -1283,7 +1289,10 @@ def handoff(page, rec, hunt=False, attempts=None, elapsed_sec=None):
         confirm = ""
         while confirm.upper() != "COMPLETE":
             confirm = input("Type COMPLETE once submitted to close the browser: ")
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
+        # EOFError is unreachable via the isatty guard above, but stdin can
+        # still close underneath a live terminal; never let that path raise
+        # while a winning session is being held.
         print("\n[INFO] Interrupted while waiting for completion.")
 
 
@@ -1779,7 +1788,11 @@ def mode_control(args):
 def mode_single(args):
     """Test one entry with no VPN. --single-google "term" or --single-url <url>."""
     if args.single_google:
-        entry = {"card": "business_platinum", "target": 0, "method": "google",
+        # Infer the card from the query instead of always logging Platinum;
+        # --single-google "amex business gold" was recording business_platinum.
+        q = args.single_google.lower()
+        card = "business_gold" if "gold" in q else "business_platinum"
+        entry = {"card": card, "target": 0, "method": "google",
                  "url": None, "query": args.single_google, "ref_code": None}
     else:
         card = card_from_url(args.single_url) or "unknown"
@@ -1929,6 +1942,14 @@ def mode_scan(args):
                             rec, page = run_attempt(ctx, entry, city, server)
                             rec.update(fp_meta)
                             rec["try"] = tryi
+                            # Stamp the exit the guard already read. Without
+                            # this the attempt rows carry a null exit_ip and
+                            # analyze.py's exit factor is silently empty, which
+                            # is exactly why the 1,000-draw study could not
+                            # answer the exit question in hindsight. The IP was
+                            # only ever on the vpn_connect event row, which
+                            # nothing joins back to the attempts.
+                            rec["exit_ip"] = cur_ip
                             if args.simulate_qualify and attempts == 0:
                                 rec["qualified"] = True
                                 rec["exposed_offer_text"] = "(simulated) Earn 300,000 Points"
