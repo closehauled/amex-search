@@ -9,6 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import WebDriverException, TimeoutException
 
 import re
+import shutil
 import subprocess
 import time
 import sys
@@ -37,10 +38,26 @@ NORDVPN_RETRY_BACKOFF_SEC = 3
 SELENIUM_PAGE_LOAD_TIMEOUT = 30
 SELENIUM_ELEMENT_TIMEOUT = 15
 
-# These were the working Ubuntu 22.04 paths.
-# If someone runs this on another OS, they MUST change these:
-CHROMIUM_BINARY = "/usr/bin/chromium-browser"
-CHROMEDRIVER_PATH = "/usr/lib/chromium-browser/chromedriver"
+# These were the working Ubuntu 22.04 paths, and they do not exist on Ubuntu
+# 24.04, where chromium is a snap; the script died with a raw selenium
+# traceback there. Discovered off PATH now, same approach as vm-tools/webapp,
+# with AMEX_CHROMIUM / AMEX_CHROMEDRIVER as overrides.
+def _find(env, *names):
+    override = os.environ.get(env)
+    if override:
+        return override
+    for n in names:
+        p = shutil.which(n)
+        if p:
+            return p
+    raise SystemExit(
+        f"Could not find any of {', '.join(names)} on PATH. Install it, or set "
+        f"{env} to its full path.")
+
+
+CHROMIUM_BINARY = _find("AMEX_CHROMIUM", "chromium", "chromium-browser",
+                        "google-chrome", "google-chrome-stable")
+CHROMEDRIVER_PATH = _find("AMEX_CHROMEDRIVER", "chromedriver")
 
 DEFAULT_REFERRAL_URL = (
     "https://americanexpress.com/en-us/referral/business-platinum-charge-card?ref=YOUR_REF_CODE&XL=XXXXX"
