@@ -108,13 +108,41 @@ def _browser_dirs():
     ])
 
 
+def _resolve_snap_wrapper(path):
+    """Turn /snap/bin/chromium into the real browser binary inside the snap.
+
+    /snap/bin/<name> is a symlink to /usr/bin/snap, a launcher wrapper rather
+    than the browser. Handing that to chromedriver as binary_location breaks
+    it: the driver launches the wrapper, the wrapper re-execs the real browser,
+    the process the driver is tracking exits, and the session dies with
+    "session not created: Chrome instance exited".
+
+    Measured on Ubuntu 24.04 with snap chromium 151.0.7922.108. The wrapper
+    failed with the chromedriver shipped inside the same snap and happened to
+    work with a downloaded one, which is a version-dependent accident, not
+    something to rely on. The real binary worked with both. Launching the
+    wrapper from a shell is fine, so only binary_location callers are affected;
+    resolving it here keeps every caller on the path that always works.
+    """
+    if not path or WINDOWS:
+        return path
+    if not (path.startswith("/snap/bin/")
+            or os.path.realpath(path) == "/usr/bin/snap"):
+        return path
+    # "chromium.chromedriver" style names share the snap directory name.
+    name = os.path.basename(path).split(".")[0]
+    for cand in (f"/snap/{name}/current/usr/lib/chromium-browser/chrome",
+                 f"/snap/{name}/current/usr/lib/chromium/chrome",
+                 f"/snap/{name}/current/opt/google/chrome/chrome"):
+        if os.path.exists(cand):
+            return cand
+    return path
+
+
 def _driver_dirs(browser=None):
     candidates = []
-    # A snap-confined Chromium can only be driven by the chromedriver inside
-    # the same snap: an external driver launches the browser but cannot see it
-    # across the confinement boundary, and the session dies with a bare
-    # "cannot connect to chrome". So when the browser came from snap, that
-    # driver is checked ahead of everything else.
+    # A snap browser ships a chromedriver built against exactly that build, so
+    # it is preferred over downloading one: no network, and no version skew.
     if browser and browser.startswith("/snap/"):
         candidates.append("/snap/bin/chromium.chromedriver")
     if MACOS:
@@ -203,17 +231,18 @@ def _from_env(var):
 
 def find_chromium(required=True):
     """Return a path to a Chromium-family browser, or None (or exit) if the
-    machine has none."""
+    machine has none. Snap wrapper paths are resolved to the real binary, so
+    the result is always something chromedriver can launch."""
     found = _from_env("AMEX_CHROMIUM")
     if found:
-        return found
+        return _resolve_snap_wrapper(found)
     for name in BROWSER_NAMES:
         p = shutil.which(name)
         if p:
-            return p
+            return _resolve_snap_wrapper(p)
     for p in _browser_dirs():
         if os.path.exists(p):
-            return p
+            return _resolve_snap_wrapper(p)
     p = _playwright_chromium()
     if p:
         return p
