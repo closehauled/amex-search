@@ -49,8 +49,11 @@ def build_driver():
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option("useAutomationExtension", False)
     opts.binary_location = CHROMIUM_BINARY
-    service = browser_paths.build_chrome_service(CHROMIUM_BINARY)
-    driver = webdriver.Chrome(service=service, options=opts)
+    # start_chrome rather than webdriver.Chrome: it retries with a downloaded
+    # driver when the local one cannot drive this browser, which is a routine
+    # condition (a distro chromedriver goes stale against a browser that
+    # auto-updates) rather than an exceptional one.
+    driver = browser_paths.start_chrome(opts, CHROMIUM_BINARY)
     driver.set_page_load_timeout(30)
     return driver
 

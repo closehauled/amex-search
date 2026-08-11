@@ -314,9 +314,12 @@ def build_webdriver():
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
     chrome_options.binary_location = CHROMIUM_BINARY
-    service = browser_paths.build_chrome_service(CHROMIUM_BINARY)
+    # start_chrome rather than webdriver.Chrome: it retries with a downloaded
+    # driver when the local one cannot drive this browser, which is routine
+    # (a distro chromedriver goes stale against a browser that auto-updates)
+    # rather than exceptional.
 
-    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver = browser_paths.start_chrome(chrome_options, CHROMIUM_BINARY)
     driver.set_page_load_timeout(SELENIUM_PAGE_LOAD_TIMEOUT)
     return driver
 

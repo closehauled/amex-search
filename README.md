@@ -152,12 +152,23 @@ python analyze.py                                                 # per-factor t
 - `amex-300k-6.py` - legacy Selenium version (kept for reference)
 - `diagnose.py` - legacy Selenium page-load diagnostic (reads the first link in
   `amex-referrals.txt`; superseded by `probe_check.py`)
-- `browser_paths.py` - locates a Chromium-family browser, and a chromedriver,
-  on Linux, macOS and Windows; used by the two Selenium scripts and
-  `vm-tools/webapp`. It searches `PATH`, the per-platform install locations,
-  and the Chromium that Playwright installed for this repo, in that order.
-  Set `AMEX_CHROMIUM` or `AMEX_CHROMEDRIVER` to override either. Run it
-  directly (`python browser_paths.py --chromium`) to see what it picks
+- `browser_paths.py` - finds a browser and a driver for the two Selenium
+  scripts and `vm-tools/webapp`. It ranks every candidate (env overrides,
+  `PATH`, distro and vendor install locations, snap, flatpak, and the Chromium
+  Playwright installed for this repo) and then **runs each one before
+  returning it**, so a binary that exists but cannot start loses to one that
+  works. Recovery is preferred to failure at every step: a driver that cannot
+  drive the browser is retried with one downloaded to match it, and a machine
+  with no usable browser is repaired with `playwright install chromium`, which
+  needs no root and works on any distribution. When nothing can be repaired
+  the error names each candidate and why it failed, the missing library if
+  that was the cause, and the install command for the distribution actually
+  running. Overrides: `AMEX_CHROMIUM` and `AMEX_CHROMEDRIVER` (a full path or
+  a bare name), `AMEX_BROWSER_NO_AUTO_INSTALL`, `AMEX_BROWSER_NO_VALIDATE`.
+  Run `python browser_paths.py --list` to see the ranking with each
+  candidate's status, or `--selftest` to prove the choice by driving it.
+  Verified on Ubuntu 24.04, Debian 12, Fedora 41, Arch, Alpine 3.20 and
+  openSUSE Leap
 - `test_control_helpers.py` - pure-helper unit tests, run with `pytest` (no
   playwright needed)
 - `test_control_nav.py` - despite the name, **not a pytest suite**: it is a
