@@ -58,17 +58,46 @@ off by default.
 ## Requirements
 
 - Python 3.12+ with `playwright`, `pandas`, `requests` (and `selenium` for the
-  two legacy Selenium scripts only, `amex-300k-6.py` and `diagnose.py`)
-- `playwright install chromium`
+  two legacy Selenium scripts only, `amex-300k-6.py` and `diagnose.py`;
+  `pytest` if you want to run `test_control_helpers.py`)
+- Chromium via Playwright, **plus its system libraries** (see setup, step 3)
 - NordVPN CLI, logged in, with `nordvpn set lan-discovery on`
-- A Linux host with a display for the headed browser (the handoff needs a visible
-  window)
+- A Linux host with a display for the headed browser (the handoff needs a
+  visible window). The X screen must be at least as large as the browser
+  window, or `Page.captureScreenshot` fails outright: with the default
+  1920x1080 target viewport, use a 1920x1080-or-larger screen. `Xvfb :1
+  -screen 0 1920x1200x24` works for a headless host.
 
 ## Setup
 
-1. Install dependencies and the Playwright browser:
-   `pip install playwright pandas requests && playwright install chromium`
-2. Create your referral file (optional, referral entry is off by default):
+Verified on a clean Ubuntu 24.04 LTS server. Steps 1 and 3 are easy to miss and
+the tool cannot start without either.
+
+1. System packages (a stock Ubuntu 24.04 image ships no `pip` and no `venv`):
+
+```
+sudo apt update && sudo apt install -y python3-pip python3-venv git
+```
+
+2. Python dependencies. Ubuntu 24.04 marks its Python as externally managed
+   (PEP 668), so a bare `pip install` is refused. Use a virtualenv:
+
+```
+python3 -m venv .venv && . .venv/bin/activate
+pip install playwright pandas requests
+```
+
+3. The browser **and its system libraries**. `playwright install chromium`
+   alone downloads a browser that cannot launch (it dies on a missing
+   `libatk-1.0.so.0`); `install-deps` is what pulls the ~40 shared libraries
+   Chromium needs:
+
+```
+playwright install chromium
+sudo .venv/bin/playwright install-deps chromium
+```
+
+4. Create your referral file (optional, referral entry is off by default):
    `cp amex-referrals.txt.example amex-referrals.txt` and add your links.
 
 ## Usage
@@ -122,8 +151,12 @@ python analyze.py                                                 # per-factor t
 - `amex-300k-6.py` - legacy Selenium version (kept for reference)
 - `diagnose.py` - legacy Selenium page-load diagnostic (reads the first link in
   `amex-referrals.txt`; superseded by `probe_check.py`)
-- `test_control_helpers.py` - pure-helper tests (no playwright needed);
-  `test_control_nav.py` - control-mode navigation tests (needs playwright)
+- `test_control_helpers.py` - pure-helper unit tests, run with `pytest` (no
+  playwright needed)
+- `test_control_nav.py` - despite the name, **not a pytest suite**: it is a
+  live integration script (`python test_control_nav.py`) that drives real
+  Amex apply pages through the control-mode navigation pipeline. It needs
+  playwright and a working VPN, and it collects zero tests under `pytest`
 - `scripts/check_publish.py` - PII publish gate (heuristics + local denylist
   + canaries); wired into `.githooks/pre-push` via
   `git config core.hooksPath .githooks`
