@@ -199,10 +199,12 @@ The offer-unmask engine (the `isAhaVariant`/`showExactOffer` flip on the Print T
 
 ## TODO
 
-- Add a LICENSE (the offer-unmask engine is a port of toddrob99's userscript, which has no stated license; resolve attribution/licensing before tagging a release) #high
-- Identify the `no_apply_cta` wall trigger from the next wall's `failures/` artifacts (stealth-context and simple-pace hypotheses both disproven; trigger is stateful/temporal on Amex's side)
-- Validate the four externally-sourced Platinum codes (57460/65147/73113/73165=200k) by actually drawing and exposing them; they are added to the table but unconfirmed in our own data
-- Optional: `amex_ctl decode <url>` helper and an on-demand drift-check mode
+- Identify the `no_apply_cta` wall trigger from the next wall's `failures/` artifacts (stealth-context and simple-pace hypotheses both disproven; trigger is stateful/temporal on Amex's side) #med
+- Validate the four externally-sourced Platinum codes (57460/65147/73113/73165=200k) by actually drawing and exposing them; they are added to the table but unconfirmed in our own data #med
+- Re-check `portability_test.py`: it completes and prints a verdict, but both probes returned empty (`offer_section_present: {}`), so the "NOT portable" conclusion rests on falsy-empty rather than a real negative #med
+- Exercise `amex-300k-6.py` end to end at least once; only its browser discovery and parsing have been verified #low
+- Exercise `winner_watch.sh` beyond config validation (needs a second machine for the poll/notify loop), and `vm-tools/fullcap` on a real desktop #low
+- Optional: `amex_ctl decode <url>` helper and an on-demand drift-check mode #low
 
 ## Changelog highlights
 
