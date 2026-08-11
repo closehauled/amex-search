@@ -8,6 +8,12 @@ and what matters is how often each tier (especially the top) gets pulled. For
 each card and each randomized factor it shows the top-tier hit-rate per level and
 runs a permutation test on the top-tier indicator: does this factor change the
 probability of pulling the top offer, or is it flat (random)?
+
+Known blind spot: `exit_subnet` groups at /16 (`subnet16`). The exit-block
+effect found on 2026-08-08 sits at /24, so a "flat" verdict on this factor is
+not evidence that the exit does not matter. It is also worth remembering that
+a factor tests flat if the levels are too thin to separate: ~200 distinct exit
+IPs over ~1,000 draws is about five draws per level.
 """
 import json
 import sys
@@ -147,7 +153,9 @@ def main():
 
     print("\nGuide: top-tier hit-rate = how often the best bonus was pulled. "
           "p<0.05 with a big rate spread = that factor really changes your odds "
-          "of the top offer. p>=0.20 = flat (does not matter).")
+          "of the top offer. p>=0.20 = no effect detected at this grain and "
+          "sample size, which is not the same as no effect: exit_subnet read "
+          "flat here for months at /16 while the real structure sat at /24.")
 
 
 if __name__ == "__main__":

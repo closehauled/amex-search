@@ -35,11 +35,20 @@ on-page banner so you can submit on your normal IP.
 Randomized-factor experiments (~950 trials total; the corrected write-up is in
 [amex-stats-summary.md](amex-stats-summary.md), the original report in
 [docs/experiment-report.md](docs/experiment-report.md) is superseded on this
-point) found that **a large desktop viewport is the only setting that changes
-the exposed offer**: 1920x1080 and 2560x1440 both pulled the Platinum 300k at
+point) found that **a large desktop viewport is the strongest setting under your
+control**: 1920x1080 and 2560x1440 both pulled the Platinum 300k at
 roughly 56-60%, vs 23% and below for 1536-wide and smaller, and 0% on mobile
-(Fisher p=2.3e-11). The scanner fixes the viewport at 1920x1080. VPN city, exit
-IP, timezone, UA platform, and dwell time all tested flat. Separately, the
+(Fisher p=2.3e-11). The scanner fixes the viewport at 1920x1080. VPN city,
+timezone, UA platform, and dwell time all tested flat.
+
+**Exit IP is not flat** (revised 2026-08-08; it had been reported as flat, and
+that reading came from runs that logged no exit IP, a /16 grouping in
+`analyze.py`, and a 175k-or-better threshold that reverses the effect). At the
+/24 grain, NordVPN's Panama-registered 2025-03-13 capacity returned **zero
+Business Gold 200k in 339 draws** while every other block returned it at
+roughly 20-31%. Those blocks serve only 175k or 100k, so they score *better*
+on 175k-or-better and lose absolutely at 200k. Use the block attribute rather
+than a list of blocks: a five-block hot list went stale in a day. Separately, the
 **5-digit code in the apply URL deterministically identifies the offer tier**
 (813/813 draws, zero drift), so a known code is read instantly and the Print
 Terms exposer serves as fallback and pre-submit confirmation. Referral-link

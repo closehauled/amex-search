@@ -1,15 +1,24 @@
 # Amex Offer Self-Learning Experiment: Report
 
 > [!IMPORTANT]
-> **Superseded on the viewport-range conclusion.** This report's finding that
-> 1920x1080 is a unique sweet spot (with 2560x1440 weak) was refuted by the
-> larger 2026-06-22 run (n=493): **1920x1080 and 2560x1440 both pull the
-> Platinum 300k at ~56-60%** (Fisher p=2.3e-11); the original "2560 = 11%" was
-> small-n noise. The corrected framing (effective viewport / display scaling)
-> and the later 5-digit-URL-code discovery are in
-> [../amex-stats-summary.md](../amex-stats-summary.md), which is the current
-> source of truth. The rest of this report (method, flat factors, dose-response
-> direction) still stands.
+> **Superseded on two conclusions.** Kept as the record of what these runs
+> showed; the current source of truth is
+> [../amex-stats-summary.md](../amex-stats-summary.md).
+>
+> 1. **Viewport range.** This report's finding that 1920x1080 is a unique sweet
+>    spot (with 2560x1440 weak) was refuted by the larger 2026-06-22 run
+>    (n=493): **1920x1080 and 2560x1440 both pull the Platinum 300k at ~56-60%**
+>    (Fisher p=2.3e-11); the original "2560 = 11%" was small-n noise.
+> 2. **Exit IP.** Every "exit IP is flat" statement below is superseded as of
+>    2026-08-08. It was not measurable in this data: `analyze.py` groups exits
+>    at **/16** while the effect sits at **/24**, and with ~200 distinct IPs
+>    over ~1,000 draws there were about five draws per level. Later runs that
+>    recorded and classified the exit on every draw found the Business Gold
+>    200k gated by the exit block. The city result is unaffected and still
+>    stands.
+>
+> The method, the other flat factors, and the dose-response direction still
+> stand.
 
 <table>
 <tr><td><b>Date</b></td><td>2026-06-21</td></tr>
@@ -21,6 +30,9 @@
 ## Verdict
 
 One factor moves the exposed offer: **browser viewport size**. A 1920x1080 viewport produced the highest offers on both cards, with a clean dose-response across all five viewport sizes, p approximately 0.000 (all numbers from `attempts.jsonl` via `analyze.py`). Every other controllable factor I randomized (VPN city, exit-IP subnet, UA platform, timezone, dwell time, hour of day) tested flat. So the offer is effectively random with respect to everything except viewport.
+
+> [!NOTE]
+> The exit-IP half of that sentence is superseded, see the banner at the top. The subnet grouping here is /16 and the effect is at /24, so this run could not have detected it.
 
 **Change applied:** `amex_scanner.py` `new_session()` now fixes the viewport at 1920x1080 (deployed to the VM, syntax verified). UA and timezone still rotate, for anti-bot only.
 
@@ -76,6 +88,9 @@ Every factor flat except **fp_viewport p=0.000**. Other p-values: city 0.243, fp
 
 12 top-tier offers were exposed during the run (per `attempts.jsonl` qualifier events): 11 Platinum 300k and 1 Gold 200k. They occurred across many cities and exit IPs (Platinum 300k from Phoenix, Chicago, Seattle, Atlanta, Salt Lake City, Los Angeles, Houston, New York; Gold 200k from Chicago), which is consistent with geography being flat. The viewport, not the location, is what tracked the high offers.
 
+> [!NOTE]
+> "Across many cities and exit IPs" is a description of where the hits landed, not a test. A single Gold 200k cannot say anything about exit blocks either way; the later result that it can is in the current summary.
+
 ## Why I trust the viewport result (and its limits)
 
 Supporting it:
@@ -93,7 +108,7 @@ Caveats, stated honestly:
 ## Recommendation
 
 1. **Done:** fix the scanner viewport at 1920x1080 (applied). Keep UA + timezone rotation for anti-bot, drop the rest as offer-value levers.
-2. Do not bother randomizing city, exit IP, platform, timezone, or dwell to chase higher offers. They did not matter in 164 exposures.
+2. Do not bother randomizing city, ~~exit IP,~~ platform, timezone, or dwell to chase higher offers. They did not matter in 164 exposures. **[Superseded on exit IP, 2026-08-08: the exit block does change the Business Gold 200k. See the banner at the top.]**
 3. If you want to push further, the next test would be even larger viewports / device-pixel-ratio, since bigger tracked higher. That is a follow-up experiment, not an established result.
 
 ## Side finding
@@ -154,9 +169,12 @@ Key refinement: it is NOT simply "bigger is better." **1920x1080 (the most commo
 - Gold 200k: pulled 4% overall (4/106), tier mix 200k 4%, 175k 10%, 150k 71%, 100k 15%. Gold's elevated offer is rare, and for Gold no factor tested significant (viewport p=0.33), so Gold 200k looks closer to random and just needs many fresh-session attempts.
 - Success rate 86% (the apply-403 fix held; failures are transient retries).
 
-## City / IP still flat
+## City / IP still flat [superseded on IP]
 
 City (p=0.54), exit-IP /16 subnet (p=0.30), and timezone (p=0.77) were flat again. Per-city 300k rates bounced 0-33% with tiny samples and no coherent geography, consistent with the prior run's flat city result (p~0.89). VPN location does not steer the offer.
+
+> [!IMPORTANT]
+> **Superseded on exit IP, 2026-08-08.** The p=0.30 above is a /16 result; the structure is at /24, and the tier scored here is the Platinum 300k. On the Business Gold 200k, with the exit recorded and classified on every draw, the block does steer the offer: zero 200k in 339 draws on one class of block against roughly 20-31% on the rest. The city result is unaffected, though city turned out to matter indirectly, as a route to which blocks you can reach.
 
 ## [unverified] residential vs datacenter (cellular) idea
 

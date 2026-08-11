@@ -1905,10 +1905,19 @@ def mode_scan(args):
                 log_event("vpn_connect", city=city, server=server.hostname,
                           exit_ip=cur_ip)
 
-                # Stay on this exit for several attempts before rotating:
-                # city/exit-IP is measured flat for the offer draw (284 exit
-                # IPs), so per-attempt rotation only added NordVPN failure
-                # surface and connect/settle overhead.
+                # Stay on this exit for several attempts before rotating, to
+                # avoid the NordVPN failure surface and connect/settle overhead
+                # of rotating every attempt.
+                #
+                # The original rationale was that exit IP is flat for the draw.
+                # That was wrong (2026-08-08): the offer tracks the exit /24,
+                # and consecutive draws inside one exit session agree 81-82% of
+                # the time against ~60% expected by chance. So repeat attempts
+                # on one exit mostly re-draw the same tier, and a hunt for the
+                # Gold 200k is better served by reaching a block that can serve
+                # it at all than by more attempts on one that cannot. Left at
+                # the reliability-driven default; lower --rotate-every to trade
+                # connect overhead for block coverage.
                 passes = max(1, args.rotate_every) if args.hunt else 1
                 stop_server = False
                 for _pass in range(passes):
@@ -2163,8 +2172,9 @@ def parse_args(argv=None):
     p.add_argument("--max-attempts", type=int, default=0)
     p.add_argument("--rotate-every", type=int, default=10,
                    help="hunt: attempts per VPN server before rotating "
-                        "(city/IP is measured flat for the draw, so fewer "
-                        "rotations = fewer NordVPN failure modes)")
+                        "(fewer rotations = fewer NordVPN failure modes, but "
+                        "draws are sticky within an exit, so a lower value "
+                        "buys more exit-block coverage)")
     p.add_argument("--card", choices=["business_platinum", "business_gold"],
                    help="Restrict the hunt to one card")
     p.add_argument("--hunt", action="store_true",
