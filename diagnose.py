@@ -2,37 +2,19 @@
 """Quick diagnostic: load one Amex referral URL and dump what Selenium sees."""
 
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 import os
-import shutil
 import time
 
-def _find(env, *names):
-    """Locate a browser/driver binary. The old hardcoded Debian paths
-    (/usr/bin/chromium-browser, /usr/lib/chromium-browser/chromedriver) do not
-    exist on Ubuntu 24.04, where chromium is a snap, so this script died with a
-    raw selenium traceback there. Same discovery approach vm-tools/webapp uses.
-    Override with the named env var when the binary is somewhere unusual."""
-    override = os.environ.get(env)
-    if override:
-        return override
-    for n in names:
-        p = shutil.which(n)
-        if p:
-            return p
-    for p in ("/usr/bin/chromium-browser",
-              "/usr/lib/chromium-browser/chromedriver"):
-        if os.path.exists(p) and os.path.basename(p) in names:
-            return p
-    raise SystemExit(
-        f"Could not find any of {', '.join(names)} on PATH. Install it, or set "
-        f"{env} to its full path.")
+# The old hardcoded Debian paths (/usr/bin/chromium-browser,
+# /usr/lib/chromium-browser/chromedriver) do not exist on Ubuntu 24.04, where
+# chromium is a snap, and never existed on macOS or Windows, so this script
+# died with a raw selenium traceback on all three. browser_paths searches PATH,
+# the per-platform install locations, and the Chromium that Playwright already
+# installed for this repo; AMEX_CHROMIUM and AMEX_CHROMEDRIVER override it.
+import browser_paths
 
-
-CHROMIUM_BINARY = _find("AMEX_CHROMIUM", "chromium", "chromium-browser",
-                        "google-chrome", "google-chrome-stable")
-CHROMEDRIVER_PATH = _find("AMEX_CHROMEDRIVER", "chromedriver")
+CHROMIUM_BINARY = browser_paths.find_chromium()
 
 # Read the referral link from the gitignored amex-referrals.txt rather than
 # hardcoding it. The ref= code is personally identifying (it maps to the
@@ -67,7 +49,7 @@ def build_driver():
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option("useAutomationExtension", False)
     opts.binary_location = CHROMIUM_BINARY
-    service = Service(CHROMEDRIVER_PATH)
+    service = browser_paths.build_chrome_service(CHROMIUM_BINARY)
     driver = webdriver.Chrome(service=service, options=opts)
     driver.set_page_load_timeout(30)
     return driver

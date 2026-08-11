@@ -57,9 +57,10 @@ off by default.
 
 ## Requirements
 
-- Python 3.12+ with `playwright`, `pandas`, `requests` (and `selenium` for the
-  two legacy Selenium scripts only, `amex-300k-6.py` and `diagnose.py`;
-  `pytest` if you want to run `test_control_helpers.py`)
+- Python 3.12+ with `playwright`, `pandas`, `requests` (and `selenium` >= 4.6
+  for the two legacy Selenium scripts only, `amex-300k-6.py` and `diagnose.py`,
+  which rely on that version fetching its own chromedriver; `pytest` if you
+  want to run `test_control_helpers.py`)
 - Chromium via Playwright, **plus its system libraries** (see setup, step 3)
 - NordVPN CLI, logged in, with `nordvpn set lan-discovery on`
 - A Linux host with a display for the headed browser (the handoff needs a
@@ -151,6 +152,12 @@ python analyze.py                                                 # per-factor t
 - `amex-300k-6.py` - legacy Selenium version (kept for reference)
 - `diagnose.py` - legacy Selenium page-load diagnostic (reads the first link in
   `amex-referrals.txt`; superseded by `probe_check.py`)
+- `browser_paths.py` - locates a Chromium-family browser, and a chromedriver,
+  on Linux, macOS and Windows; used by the two Selenium scripts and
+  `vm-tools/webapp`. It searches `PATH`, the per-platform install locations,
+  and the Chromium that Playwright installed for this repo, in that order.
+  Set `AMEX_CHROMIUM` or `AMEX_CHROMEDRIVER` to override either. Run it
+  directly (`python browser_paths.py --chromium`) to see what it picks
 - `test_control_helpers.py` - pure-helper unit tests, run with `pytest` (no
   playwright needed)
 - `test_control_nav.py` - despite the name, **not a pytest suite**: it is a

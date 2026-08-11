@@ -3,8 +3,35 @@
 # full-page screenshot of whatever you are applying on. Optional URL argument.
 # Run one webapp browser at a time (the debug port is single-owner).
 PORT="${PAGECAP_PORT:-9222}"
-PROFILE="$HOME/.config/appchrome"
-BIN="$(command -v chromium || command -v chromium-browser)"
+PROFILE="${APPCHROME_PROFILE:-$HOME/.config/appchrome}"
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Browser discovery lives in browser_paths.py so this launcher and the two
+# Selenium scripts cannot disagree about which binary to use. Falling back to a
+# plain PATH lookup keeps the launcher working if python3 is missing.
+if [ -n "$AMEX_CHROMIUM" ]; then
+  # An override that does not resolve is a typo worth reporting, not a reason
+  # to quietly launch some other browser.
+  if [ ! -x "$AMEX_CHROMIUM" ]; then
+    echo "webapp: AMEX_CHROMIUM=$AMEX_CHROMIUM is not an executable." >&2
+    exit 1
+  fi
+  BIN="$AMEX_CHROMIUM"
+else
+  BIN="$(python3 "$REPO/browser_paths.py" --chromium 2>/dev/null)"
+  if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
+    BIN="$(command -v chromium || command -v chromium-browser \
+        || command -v google-chrome || command -v google-chrome-stable)"
+  fi
+fi
+if [ -z "$BIN" ]; then
+  # Without this the old version exec'd an empty string, which reports as
+  # "No such file or directory" and names nothing.
+  echo "webapp: no Chromium-family browser found." >&2
+  echo "Install one, or set AMEX_CHROMIUM to the browser's full path." >&2
+  exit 1
+fi
+
 exec "$BIN" --remote-debugging-port="$PORT" \
   --remote-allow-origins=http://localhost:"$PORT" \
   --user-data-dir="$PROFILE" \

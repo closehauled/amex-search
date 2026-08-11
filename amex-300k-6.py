@@ -3,13 +3,11 @@
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import WebDriverException, TimeoutException
 
 import re
-import shutil
 import subprocess
 import time
 import sys
@@ -38,26 +36,16 @@ NORDVPN_RETRY_BACKOFF_SEC = 3
 SELENIUM_PAGE_LOAD_TIMEOUT = 30
 SELENIUM_ELEMENT_TIMEOUT = 15
 
-# These were the working Ubuntu 22.04 paths, and they do not exist on Ubuntu
-# 24.04, where chromium is a snap; the script died with a raw selenium
-# traceback there. Discovered off PATH now, same approach as vm-tools/webapp,
-# with AMEX_CHROMIUM / AMEX_CHROMEDRIVER as overrides.
-def _find(env, *names):
-    override = os.environ.get(env)
-    if override:
-        return override
-    for n in names:
-        p = shutil.which(n)
-        if p:
-            return p
-    raise SystemExit(
-        f"Could not find any of {', '.join(names)} on PATH. Install it, or set "
-        f"{env} to its full path.")
+# This used to be a pair of hardcoded Ubuntu 22.04 paths, which do not exist on
+# Ubuntu 24.04 (chromium is a snap there) and never existed on macOS or
+# Windows, so the script died with a raw selenium traceback. browser_paths
+# searches PATH, the per-platform install locations, and the Chromium
+# Playwright already installed for this repo; AMEX_CHROMIUM and
+# AMEX_CHROMEDRIVER override it.
+import browser_paths
 
 
-CHROMIUM_BINARY = _find("AMEX_CHROMIUM", "chromium", "chromium-browser",
-                        "google-chrome", "google-chrome-stable")
-CHROMEDRIVER_PATH = _find("AMEX_CHROMEDRIVER", "chromedriver")
+CHROMIUM_BINARY = browser_paths.find_chromium()
 
 DEFAULT_REFERRAL_URL = (
     "https://americanexpress.com/en-us/referral/business-platinum-charge-card?ref=YOUR_REF_CODE&XL=XXXXX"
@@ -326,7 +314,7 @@ def build_webdriver():
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
     chrome_options.binary_location = CHROMIUM_BINARY
-    service = Service(CHROMEDRIVER_PATH)
+    service = browser_paths.build_chrome_service(CHROMIUM_BINARY)
 
     driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.set_page_load_timeout(SELENIUM_PAGE_LOAD_TIMEOUT)
