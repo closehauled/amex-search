@@ -95,6 +95,9 @@ NORDVPN_RETRY_BACKOFF_SEC = 3
 
 NAV_TIMEOUT_MS = 40000
 OFFER_SECTION_TIMEOUT_MS = 30000
+# Apply-click attempts per page load. >1 so a click that beat hydration (403 on
+# the sessionless URL) is retried after a reload instead of burning the attempt.
+APPLY_CLICK_TRIES = 3
 PRINT_LINK_TIMEOUT_MS = 10000
 IFRAME_TIMEOUT_MS = 20000
 SETTLE_MS = 4000
@@ -764,7 +767,17 @@ def _click_apply(page):
                 el.click(timeout=5000)
                 return True
             except Exception:
-                continue
+                # The 2026-08 product-page redesign animates continuously, so
+                # Playwright's actionability check never sees the button "stable"
+                # and scroll/click time out on a button a human clicks fine.
+                # Fall back to a JS scroll and a force-click at its position.
+                try:
+                    el.evaluate("e => e.scrollIntoView({block: 'center'})")
+                    page.wait_for_timeout(300)
+                    el.click(timeout=3000, force=True)
+                    return True
+                except Exception:
+                    continue
     return False
 
 
@@ -802,18 +815,41 @@ def open_offer_page(page, cdp, entry, rec):
         dwell = entry.get("dwell_s") or 0
         if dwell:
             page.wait_for_timeout(int(dwell * 1000))
-        if not _click_apply(page):
-            raise RuntimeError("no_apply_cta")
-        # Only the business apply URL (with a session/messageId) is valid. If the
-        # click did a raw navigation to /card-application/apply/ (403), fail fast
-        # and retry instead of proceeding or hanging the full timeout.
-        try:
-            page.wait_for_url("**/credit-cards/apply/business/**",
+        # Only the business apply URL (with a session/messageId) is valid. A
+        # click that beat hydration raw-navigates to /card-application/apply/,
+        # which Amex 403s. That is recoverable within the attempt: go back, let
+        # the page finish hydrating, and click again (slow VPN exits need it,
+        # and it ran ~44% of attempts on a 2026-08-06 sample without this).
+        for click_try in range(APPLY_CLICK_TRIES):
+            if not _click_apply(page):
+                raise RuntimeError("no_apply_cta")
+            try:
+                page.wait_for_url("**/credit-cards/apply/business/**",
+                                  timeout=NAV_TIMEOUT_MS)
+                break
+            except PWTimeout:
+                if "/card-application/apply/" not in page.url:
+                    raise RuntimeError("apply_nav_failed")
+                if click_try >= APPLY_CLICK_TRIES - 1:
+                    raise RuntimeError("apply_403_no_session")
+                # Recover to the product page and give hydration more room.
+                # Any failure here falls through to the plain 403, so this is
+                # never worse than failing fast.
+                try:
+                    page.goto(landing, wait_until="commit",
                               timeout=NAV_TIMEOUT_MS)
-        except PWTimeout:
-            if "/card-application/apply/" in page.url:
-                raise RuntimeError("apply_403_no_session")
-            raise RuntimeError("apply_nav_failed")
+                    if wait_any(page, APPLY_SELECTORS,
+                                OFFER_SECTION_TIMEOUT_MS) is None:
+                        raise RuntimeError("no_apply_cta")
+                    try:
+                        page.wait_for_load_state("networkidle", timeout=15000)
+                    except PWTimeout:
+                        pass
+                    page.wait_for_timeout(3000 * (click_try + 1))
+                except RuntimeError:
+                    raise
+                except Exception:
+                    raise RuntimeError("apply_403_no_session")
 
     # Apply page: eval is blocked, poll for the offer section via CDP.
     if not cdp_wait_offer_section(cdp, OFFER_SECTION_TIMEOUT_MS):
@@ -1284,12 +1320,42 @@ def new_session(browser, city=None, timezone=None):
     return ctx, meta
 
 
-def get_exit_ip():
-    import requests
+# Several providers, because one is a single point of failure for the VPN-only
+# guard. Home-network DNS filtering blackholes api.ipify.org to 0.0.0.0 (it sits
+# on common blocklists), which silently killed the residential baseline read and
+# left the guard inactive for a whole run. A VPN connect masks it, since the
+# tunnel's resolvers answer normally, so it only shows up on the direct path.
+EXIT_IP_URLS = (
+    "https://api.ipify.org",
+    "https://ifconfig.me/ip",
+    "https://icanhazip.com",
+)
+
+
+def _looks_like_ipv4(s):
+    """Reject block pages, empty bodies, and IPv6. Comparing a v6 answer against
+    a v4 baseline would trip the guard on a perfectly good exit."""
+    parts = s.split(".")
+    if len(parts) != 4 or s == "0.0.0.0":
+        return False
     try:
-        return requests.get("https://api.ipify.org", timeout=8).text.strip()
-    except Exception:
-        return None
+        return all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+    except ValueError:
+        return False
+
+
+def get_exit_ip():
+    """First plausible answer wins. None means every provider failed, which the
+    exit-IP guard must treat as inconclusive, never as a pass."""
+    import requests
+    for url in EXIT_IP_URLS:
+        try:
+            txt = requests.get(url, timeout=8).text.strip()
+        except Exception:
+            continue
+        if _looks_like_ipv4(txt):
+            return txt
+    return None
 
 
 def experiment_profiles(pw):
@@ -1818,7 +1884,9 @@ def mode_scan(args):
                 # Exit-IP guard: confirm the exit actually left the residential
                 # baseline before loading Amex (a connect that reported success
                 # but left routing on the home IP breaches the VPN-only rule).
-                cur_ip = get_exit_ip() or get_exit_ip()
+                # One call: get_exit_ip already walks several providers, and a
+                # second full walk would cost another 24s in the hot loop.
+                cur_ip = get_exit_ip()
                 if home_ip and cur_ip == home_ip:
                     print(red(f"[GUARD] exit IP {cur_ip} is the residential "
                               "baseline; treating as a VPN failure."))
@@ -1832,8 +1900,8 @@ def mode_scan(args):
                         return
                     continue
                 if home_ip and cur_ip is None:
-                    print("[GUARD] exit-IP check inconclusive (no ipify "
-                          "answer); nordvpn reports connected, proceeding.")
+                    print("[GUARD] exit-IP check inconclusive (no provider "
+                          "answered); nordvpn reports connected, proceeding.")
                 log_event("vpn_connect", city=city, server=server.hostname,
                           exit_ip=cur_ip)
 

@@ -99,10 +99,20 @@ python analyze.py                                                 # per-factor t
 - `ab_test.py` - paired Google-vs-referral comparison helper
 - `context_ab_test.py` - browser-context A/B diagnostic for `no_apply_cta`
   walls (stealth init script / UA spoof variants over one VPN exit)
+- `probe_check.py` - live probe of which `APPLY_SELECTORS` match on the Business
+  Gold product page, and what the closest interactive ancestor of "Apply Now"
+  is; the first thing to run when `no_apply_cta` returns after a redesign
+- `portability_test.py` - tests whether an exposed application session survives
+  leaving the VPN (expose on VPN, save `storage_state`, disconnect, reopen the
+  apply URL in a fresh off-VPN context)
+- `validate_mobile.py` - single attempt under a named device profile
+  (default `iPhone 14 Pro Max`); prints the exposure record as JSON
 - `winner_watch.sh` - detached watcher that emails on winner/abort/death
 - `vm-tools/` - full-page capture helpers for the scan host (`fullcap`,
   `webapp`, `pagecap.py`)
 - `amex-300k-6.py` - legacy Selenium version (kept for reference)
+- `diagnose.py` - legacy Selenium page-load diagnostic (reads the first link in
+  `amex-referrals.txt`; superseded by `probe_check.py`)
 - `test_control_helpers.py` - pure-helper tests (no playwright needed);
   `test_control_nav.py` - control-mode navigation tests (needs playwright)
 - `scripts/check_publish.py` - PII publish gate (heuristics + local denylist
@@ -136,6 +146,13 @@ The offer-unmask engine (the `isAhaVariant`/`showExactOffer` flip on the Print T
 
 ## Changelog highlights
 
+- Apply-click hardening for the 2026-08 product-page redesign: a force-click
+  fallback for the continuously-animating button Playwright never sees as
+  stable, plus up to three click attempts per page load so a click that beats
+  hydration (403 on the sessionless apply URL) is retried after a reload
+- Exit-IP guard reads from three providers instead of ipify alone, and rejects
+  non-IPv4 answers; DNS filtering of a single provider had been silently
+  leaving the VPN-only guard inactive for a whole run
 - NordVPN calls use argv lists with server-prefix validation (no `shell=True`); all runtime markers and the control channel moved from `/tmp` to `~/.cache/amex-ctl` (0700, `AMEX_RUNTIME_DIR` override) across the scanner, `amex_ctl.py`, `winner_watch.sh`, and `fullcap`
 - Playwright is now optional at import time, so the pure helpers and `test_control_helpers.py` run without it
 - Exit-IP guard, loud parse_error status, consecutive-only NordVPN failure counting with dedicated-IP skips excluded, escalating cooldown, `--rotate-every`, failure forensics, handoff auto-zoom/hold-clock/proof-capture, `winner_watch.sh` email alerts
